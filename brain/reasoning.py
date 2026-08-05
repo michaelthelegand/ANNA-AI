@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from brain.personality import current_persona
 from brain.memory import memory
 from tools.files import FileToolError, files_tool
+from tools.terminal import TerminalToolError, terminal_tool
 
 
 @dataclass
@@ -15,14 +16,16 @@ class Reasoner:
     def _help_text(self) -> str:
         return (
             "Commands:\n"
-            "  help                     Show this help\n"
-            "  ls [path]                List a folder (default: .)\n"
-            "  read <path>              Read a text file\n"
-            "  exists <path>            Check if a path exists\n"
-            "  write <path> :: <text>   Create a new text file (no overwrite)\n"
+            "  help                       Show this help\n"
+            "  ls [path]                  List a folder (default: .)\n"
+            "  read <path>                Read a text file\n"
+            "  exists <path>              Check if a path exists\n"
+            "  write <path> :: <text>     Create a new text file (no overwrite)\n"
+            "  run <command>              Run an allowlisted command (DISABLED by default)\n"
             "\n"
             "Notes:\n"
             "  - Paths are restricted to the ANNA-AI project folder for safety.\n"
+            "  - Terminal is allowlisted + no-shell, but you must enable it with ANNA_TERMINAL_ENABLE=1.\n"
         )
 
     def respond(self, user_text: str) -> str:
@@ -80,8 +83,21 @@ class Reasoner:
                 rel = p.relative_to(files_tool.base_dir)
                 return f"{self.name}: Wrote {len(content)} chars -> {rel}"
 
-        except FileToolError as e:
-            return f"{self.name}: File error: {e}"
+            if cmd_l == "run":
+                if not arg:
+                    return f"{self.name}: Usage: run <command>"
+                r = terminal_tool.run(arg)
+                stdout = (r.get("stdout") or "").strip()
+                stderr = (r.get("stderr") or "").strip()
+                parts = [f"{self.name}: returncode={r.get('returncode')}"]
+                if stdout:
+                    parts.append("stdout:\n" + stdout)
+                if stderr:
+                    parts.append("stderr:\n" + stderr)
+                return "\n".join(parts)
+
+        except (FileToolError, TerminalToolError) as e:
+            return f"{self.name}: Tool error: {e}"
         except Exception as e:
             return f"{self.name}: Error: {e}"
 
