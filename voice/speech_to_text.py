@@ -1,5 +1,6 @@
 ﻿from __future__ import annotations
 
+import audioop
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -16,6 +17,7 @@ class SpeechToText:
     timeout_sec: int = 8
     phrase_time_limit_sec: int = 10
     device_index: int | None = settings.ANNA_STT_DEVICE_INDEX
+    language: str = "en-US"
     last_wav_path: Path = settings.DATA_DIR / "stt_last.wav"
 
     def list_microphones(self) -> list[str]:
@@ -34,12 +36,7 @@ class SpeechToText:
 
     def _save_wav(self, audio) -> None:
         settings.DATA_DIR.mkdir(parents=True, exist_ok=True)
-        try:
-            wav_bytes = audio.get_wav_data()
-            self.last_wav_path.write_bytes(wav_bytes)
-        except Exception as e:
-            # Don't block STT if saving fails
-            raise SpeechToTextError(f"Failed to save WAV ({type(e).__name__}): {e!r}")
+        self.last_wav_path.write_bytes(audio.get_wav_data())
 
     def listen_once(self) -> str:
         if not self.enabled:
@@ -55,7 +52,6 @@ class SpeechToText:
         try:
             with sr.Microphone(device_index=self.device_index) as source:
                 r.adjust_for_ambient_noise(source, duration=1.0)
-
                 try:
                     audio = r.listen(
                         source,
@@ -64,41 +60,54 @@ class SpeechToText:
                     )
                 except sr.WaitTimeoutError:
                     raise SpeechToTextError("No speech detected (timeout).")
-
         except SpeechToTextError:
             raise
         except Exception as e:
             raise SpeechToTextError(f"Microphone error ({type(e).__name__}): {e!r}")
 
-        # Always save what we captured for debugging
+        # Save capture for debugging
         try:
             self._save_wav(audio)
-        except SpeechToTextError as e:
-            # Keep going, but preserve info
-            save_err = str(e)
-        else:
-            save_err = ""
-
-        # Online recognizer (desktop app still; this just calls a network service)
-        try:
-            text = r.recognize_google(audio, language="en-US")
-            text = (text or "").strip()
-            if not text:
-                raise SpeechToTextError("Recognition returned empty text.")
-            return text
-        except sr.UnknownValueError:
-            msg = "Could not understand audio (UnknownValueError)."
-        except sr.RequestError as e:
-            msg = f"Network/API error (RequestError): {e!r}"
-        except SpeechToTextError:
-            raise
+            saved = True
         except Exception as e:
-            msg = f"STT recognition failed ({type(e).__name__}): {e!r}"
+            saved = False
+            save_err = f"{type(e).__name__}: {e!r}"
 
-        extra = f" Saved audio to: {self.last_wav_path}"
-        if save_err:
-            extra += f" (but save had issue: {save_err})"
-        raise SpeechToTextError(msg + extra)
+        # Compute signal stats
+        raw = audio.get_raw_data()
+        sw = getattr(audio, "sample_width", 2) or 2
+        peak = audioop.max(raw, sw) if raw else 0
+        rms = audioop.rms(raw, sw) if raw else 0
+        clipped = peak >= 32000
+
+        debug = f"device_index={self.device_index} lang={self.language} rms={rms} peak={peak}"
+        if clipped:
+            debug += " (CLIPPED: lower mic volume)"
+
+        if saved:
+            debug += f" wav={self.last_wav_path}"
+        else:
+            debug += f" wav_save_error={save_err}"
+
+        # Recognize (online). show_all gives better diagnostics than UnknownValueError.
+        try:
+            result = r.recognize_google(audio, language=self.language, show_all=True)
+        except Exception as e:
+            raise SpeechToTextError(f"STT network/API failure ({type(e).__name__}): {e!r}. {debug}")
+
+        # show_all=True often returns {} when it can't decode speech
+        transcript = ""
+        if isinstance(result, dict):
+            alts = result.get("alternative") or []
+            if alts and isinstance(alts[0], dict):
+                transcript = (alts[0].get("transcript") or "").strip()
+        elif isinstance(result, str):
+            transcript = result.strip()
+
+        if not transcript:
+            raise SpeechToTextError(f"No transcription alternatives returned. {debug}")
+
+        return transcript
 
 
 stt = SpeechToText()
