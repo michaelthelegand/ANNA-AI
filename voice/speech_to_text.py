@@ -69,7 +69,7 @@ class SpeechToText:
 
         return out
 
-    # Backward-compat helper (Reasoner used this earlier)
+    # Backward-compat helper
     def list_microphones(self) -> list[str]:
         return [d["name"] for d in self.list_input_devices()]
 
@@ -88,7 +88,7 @@ class SpeechToText:
     def probe(self) -> dict[str, Any]:
         """
         Captures a short chunk and saves WAV (no recognition).
-        Useful to confirm mic opens/closes cleanly for a device_index.
+        Returns a dict even if it times out (so it won't crash scripts).
         """
         if not self.enabled:
             raise SpeechToTextError("STT is disabled. Set ANNA_STT_ENABLE=1 to enable.")
@@ -104,13 +104,22 @@ class SpeechToText:
         try:
             with sr.Microphone(device_index=self.device_index, sample_rate=sample_rate) as source:
                 r.adjust_for_ambient_noise(source, duration=0.6)
-                audio = r.listen(source, timeout=3, phrase_time_limit=2)
+                try:
+                    audio = r.listen(source, timeout=6, phrase_time_limit=3)
+                except sr.WaitTimeoutError:
+                    return {
+                        "ok": False,
+                        "error": "timeout_waiting_for_speech",
+                        "device_index": self.device_index,
+                        "sample_rate": sample_rate,
+                    }
         except Exception as e:
             raise SpeechToTextError(f"Probe mic error ({type(e).__name__}): {e!r}")
 
         self._save_wav(audio)
         rms, peak, clipped = self._audio_stats(audio)
         return {
+            "ok": True,
             "device_index": self.device_index,
             "sample_rate": sample_rate,
             "rms": rms,
@@ -155,7 +164,6 @@ class SpeechToText:
             debug += " (CLIPPED: lower mic volume)"
         debug += f" wav={self.last_wav_path}"
 
-        # Recognize (online)
         try:
             result = r.recognize_google(audio, language=self.language, show_all=True)
         except sr.UnknownValueError:
