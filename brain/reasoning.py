@@ -56,6 +56,7 @@ class Reasoner:
             "  hotkey <k1>+<k2>+...         Press a hotkey combo (DISABLED by default)\n"
             "  listen                       Listen once on mic (DISABLED by default)\n"
             "  mics                         List microphone devices (DISABLED by default)\n"
+            "  playstt                      Open last STT WAV (needs Windows control)\n"
             "\n"
             "Learning (saved in data/memory.json):\n"
             "  remember <key> = <value>     Save a fact\n"
@@ -261,6 +262,11 @@ class Reasoner:
                 reply = f"{self.name}: Input microphones:\n" + "\n".join(lines)
                 self._append_history("assistant", reply)
                 return reply
+            if cmd_l in {"playstt", "sttplay"}:
+                windows_control.open_path(stt.last_wav_path)
+                reply = f"{self.name}: Opened STT audio: {stt.last_wav_path}"
+                self._append_history("assistant", reply)
+                return reply
             if cmd_l in {"listen", "mic"}:
                 print(f"{self.name}: Listening...")
                 phrase = stt.listen_once()
@@ -431,6 +437,7 @@ class Reasoner:
 
 
 reasoner = Reasoner()
+
 
 
 
