@@ -1,4 +1,4 @@
-﻿# ANNA-AI settings (stage 7: add STT flag)
+﻿# ANNA-AI settings (stage 7b: add STT device index)
 
 from __future__ import annotations
 
@@ -18,6 +18,16 @@ ENV_PATH = BASE_DIR / ".env"
 
 def _env_flag(name: str, default: str = "0") -> bool:
     return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "y", "on"}
+
+
+def _env_int(name: str, default):
+    v = os.getenv(name, None)
+    if v is None or v == "":
+        return default
+    try:
+        return int(v)
+    except Exception:
+        return default
 
 
 def _load_env() -> None:
@@ -44,6 +54,9 @@ class Settings:
     keyboard_enable: bool = _env_flag("ANNA_KEYBOARD_ENABLE", "0")
     stt_enable: bool = _env_flag("ANNA_STT_ENABLE", "0")
 
+    # STT device selection (None = system default)
+    stt_device_index: int | None = _env_int("ANNA_STT_DEVICE_INDEX", None)
+
 
 settings = Settings()
 
@@ -59,3 +72,4 @@ ANNA_WINDOWS_CONTROL_ENABLE = settings.windows_control_enable
 ANNA_MOUSE_ENABLE = settings.mouse_enable
 ANNA_KEYBOARD_ENABLE = settings.keyboard_enable
 ANNA_STT_ENABLE = settings.stt_enable
+ANNA_STT_DEVICE_INDEX = settings.stt_device_index

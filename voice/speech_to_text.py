@@ -15,7 +15,7 @@ class SpeechToText:
     enabled: bool = settings.ANNA_STT_ENABLE
     timeout_sec: int = 6
     phrase_time_limit_sec: int = 8
-    device_index: int | None = None
+    device_index: int | None = settings.ANNA_STT_DEVICE_INDEX
 
     def list_microphones(self) -> list[str]:
         if not self.enabled:
@@ -72,3 +72,4 @@ class SpeechToText:
 
 
 stt = SpeechToText()
+
