@@ -394,6 +394,7 @@ class Reasoner:
             WindowsControlError,
             MouseControlError,
             KeyboardControlError,
+                    SpeechToTextError,
         ) as e:
             reply = f"{self.name}: Tool error: {e}"
             self._append_history("assistant", reply)
@@ -412,4 +413,5 @@ class Reasoner:
 
 
 reasoner = Reasoner()
+
 
