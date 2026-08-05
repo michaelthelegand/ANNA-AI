@@ -246,7 +246,7 @@ class Reasoner:
                     role = item.get("role", "?")
                     t = item.get("text", "")
                     prefix = "You" if role == "user" else self.name
-                    lines.append(f"{prefix}: {t}")
+                    lines.append(t if (role != "user" and t.startswith(f"{self.name}:")) else f"{prefix}: {t}")
                 reply = f"{self.name}: Last {len(h)} messages:\n" + "\n".join(lines)
                 self._append_history("assistant", reply)
                 return reply
@@ -275,3 +275,4 @@ class Reasoner:
 
 
 reasoner = Reasoner()
+
