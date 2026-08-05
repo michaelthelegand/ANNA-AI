@@ -1,4 +1,4 @@
-﻿# ANNA-AI settings (stage 1: .env loader)
+﻿# ANNA-AI settings (stage 2: .env loader + feature flags)
 
 from __future__ import annotations
 
@@ -14,6 +14,10 @@ except Exception:
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 ENV_PATH = BASE_DIR / ".env"
+
+
+def _env_flag(name: str, default: str = "0") -> bool:
+    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "y", "on"}
 
 
 def _load_env() -> None:
@@ -33,12 +37,16 @@ class Settings:
     anna_ai_name: str = os.getenv("ANNA_AI_NAME", "ANNA")
     data_dir: Path = BASE_DIR / "data"
 
+    # Feature flags
+    tts_enable: bool = _env_flag("ANNA_TTS_ENABLE", "0")
+
 
 settings = Settings()
 
-# Backwards-compatible module-level exports (so main.py stays simple)
+# Backwards-compatible module-level exports
 APP_NAME = settings.app_name
 VERSION = settings.version
 LOG_LEVEL = settings.log_level
 ANNA_AI_NAME = settings.anna_ai_name
 DATA_DIR = settings.data_dir
+ANNA_TTS_ENABLE = settings.tts_enable
