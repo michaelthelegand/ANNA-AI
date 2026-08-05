@@ -1,4 +1,4 @@
-﻿# ANNA-AI settings (stage 3: add browser flag)
+﻿# ANNA-AI settings (stage 4: add windows control flag)
 
 from __future__ import annotations
 
@@ -21,7 +21,6 @@ def _env_flag(name: str, default: str = "0") -> bool:
 
 
 def _load_env() -> None:
-    # Load .env if present (we keep .env out of git).
     if load_dotenv and ENV_PATH.exists():
         load_dotenv(ENV_PATH, override=False)
 
@@ -40,6 +39,7 @@ class Settings:
     # Feature flags
     tts_enable: bool = _env_flag("ANNA_TTS_ENABLE", "0")
     browser_enable: bool = _env_flag("ANNA_BROWSER_ENABLE", "0")
+    windows_control_enable: bool = _env_flag("ANNA_WINDOWS_CONTROL_ENABLE", "0")
 
 
 settings = Settings()
@@ -50,5 +50,7 @@ VERSION = settings.version
 LOG_LEVEL = settings.log_level
 ANNA_AI_NAME = settings.anna_ai_name
 DATA_DIR = settings.data_dir
+
 ANNA_TTS_ENABLE = settings.tts_enable
 ANNA_BROWSER_ENABLE = settings.browser_enable
+ANNA_WINDOWS_CONTROL_ENABLE = settings.windows_control_enable
