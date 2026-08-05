@@ -3,6 +3,7 @@
 import audioop
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from config import settings
 
@@ -20,19 +21,39 @@ class SpeechToText:
     language: str = "en-US"
     last_wav_path: Path = settings.DATA_DIR / "stt_last.wav"
 
-    def list_microphones(self) -> list[str]:
+    def list_input_devices(self) -> list[dict[str, Any]]:
         if not self.enabled:
             raise SpeechToTextError("STT is disabled. Set ANNA_STT_ENABLE=1 to enable.")
 
         try:
-            import speech_recognition as sr
+            import pyaudio
         except Exception as e:
-            raise SpeechToTextError(f"SpeechRecognition not installed: {e!r}")
+            raise SpeechToTextError(f"PyAudio not installed: {e!r}")
 
+        pa = pyaudio.PyAudio()
+        out: list[dict[str, Any]] = []
         try:
-            return list(sr.Microphone.list_microphone_names())
-        except Exception as e:
-            raise SpeechToTextError(f"Failed to list microphones ({type(e).__name__}): {e!r}")
+            for i in range(pa.get_device_count()):
+                info = pa.get_device_info_by_index(i)
+                max_in = int(info.get("maxInputChannels") or 0)
+                if max_in <= 0:
+                    continue
+                out.append(
+                    {
+                        "index": int(i),
+                        "name": str(info.get("name") or ""),
+                        "max_input_channels": max_in,
+                        "default_sample_rate": int(info.get("defaultSampleRate") or 0),
+                    }
+                )
+        finally:
+            pa.terminate()
+
+        return out
+
+    # Backward-compat helper (older Reasoner code used this)
+    def list_microphones(self) -> list[str]:
+        return [d["name"] for d in self.list_input_devices()]
 
     def _save_wav(self, audio) -> None:
         settings.DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -89,13 +110,16 @@ class SpeechToText:
         else:
             debug += f" wav_save_error={save_err}"
 
-        # Recognize (online). show_all gives better diagnostics than UnknownValueError.
+        # Recognize (online)
         try:
             result = r.recognize_google(audio, language=self.language, show_all=True)
+        except sr.UnknownValueError:
+            raise SpeechToTextError(f"Could not understand audio (UnknownValueError). {debug}")
+        except sr.RequestError as e:
+            raise SpeechToTextError(f"Network/API error (RequestError): {e!r}. {debug}")
         except Exception as e:
-            raise SpeechToTextError(f"STT network/API failure ({type(e).__name__}): {e!r}. {debug}")
+            raise SpeechToTextError(f"STT recognition failed ({type(e).__name__}): {e!r}. {debug}")
 
-        # show_all=True often returns {} when it can't decode speech
         transcript = ""
         if isinstance(result, dict):
             alts = result.get("alternative") or []

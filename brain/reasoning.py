@@ -243,15 +243,22 @@ class Reasoner:
                 keyboard_control.hotkey(*keys)
                 reply = f"{self.name}: Hotkey pressed: {'+'.join(keys)}."
                 self._append_history("assistant", reply)
-                return reply
-
-            if cmd_l in {"mics", "miclist"}:
-                names = stt.list_microphones()
-                if not names:
-                    reply = f"{self.name}: No microphones found."
+                return reply            if cmd_l in {"mics", "miclist"}:
+                devices = stt.list_input_devices()
+                if not devices:
+                    reply = f"{self.name}: No input microphones found."
                     self._append_history("assistant", reply)
                     return reply
-                lines = [f"{i}: {n}" for i, n in enumerate(names)]
+
+                lines = []
+                for d in devices:
+                    lines.append(
+                        f"{d.get('index')}: {d.get('name')} (in={d.get('max_input_channels')}, rate={d.get('default_sample_rate')})"
+                    )
+
+                reply = f"{self.name}: Input microphones:\n" + "\n".join(lines)
+                self._append_history("assistant", reply)
+                return replylines = [f"{i}: {n}" for i, n in enumerate(names)]
                 reply = f"{self.name}: Microphones:\n" + "\n".join(lines)
                 self._append_history("assistant", reply)
                 return reply
@@ -425,6 +432,7 @@ class Reasoner:
 
 
 reasoner = Reasoner()
+
 
 
 
