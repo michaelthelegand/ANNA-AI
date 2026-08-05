@@ -7,6 +7,7 @@ from brain.learning import learner
 from brain.personality import current_persona
 from brain.memory import memory
 from control.windows import WindowsControlError, windows_control
+from control.mouse import MouseControlError, mouse_control
 from tools.browser import BrowserToolError, browser_tool
 from tools.files import FileToolError, files_tool
 from tools.terminal import TerminalToolError, terminal_tool
@@ -46,7 +47,8 @@ class Reasoner:
             "  run <command>                Run an allowlisted command (DISABLED by default)\n"
             "  search <query>               Open a web search (DISABLED by default)\n"
             "  openurl <https://...>        Open a URL in default browser (DISABLED by default)\n"
-            "  openpath <path>              Open a file/folder (DISABLED by default)\n"
+            "  openpath <path>              Open a file/folder (DISABLED by default)
+  mousepos                     Get mouse position (DISABLED by default)\n"
             "\n"
             "Learning (saved in data/memory.json):\n"
             "  remember <key> = <value>     Save a fact\n"
@@ -62,7 +64,7 @@ class Reasoner:
             "  - Paths are restricted to the ANNA-AI project folder for safety.\n"
             "  - Terminal needs ANNA_TERMINAL_ENABLE=1.\n"
             "  - Browser needs ANNA_BROWSER_ENABLE=1.\n"
-            "  - Windows control needs ANNA_WINDOWS_CONTROL_ENABLE=1.\n"
+            "  - Windows control needs ANNA_WINDOWS_CONTROL_ENABLE=1.\n  - Mouse needs ANNA_MOUSE_ENABLE=1.\n"
         )
 
     def respond(self, user_text: str) -> str:
@@ -177,6 +179,11 @@ class Reasoner:
                 self._append_history("assistant", reply)
                 return reply
 
+            if cmd_l == "mousepos":
+                pos = mouse_control.position()
+                reply = f"{self.name}: Mouse position x={pos.get('x')} y={pos.get('y')}"
+                self._append_history("assistant", reply)
+                return reply
             if cmd_l == "openpath":
                 if not arg:
                     reply = f"{self.name}: Usage: openpath <path>"
@@ -267,7 +274,7 @@ class Reasoner:
                 self._append_history("assistant", reply)
                 return reply
 
-        except (FileToolError, TerminalToolError, BrowserToolError, WindowsControlError) as e:
+        except (FileToolError, TerminalToolError, BrowserToolError, WindowsControlError, MouseControlError) as e:
             reply = f"{self.name}: Tool error: {e}"
             self._append_history("assistant", reply)
             return reply
@@ -285,3 +292,4 @@ class Reasoner:
 
 
 reasoner = Reasoner()
+

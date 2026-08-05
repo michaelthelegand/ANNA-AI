@@ -1,4 +1,4 @@
-﻿# ANNA-AI settings (stage 4: add windows control flag)
+﻿# ANNA-AI settings (stage 5: add mouse flag)
 
 from __future__ import annotations
 
@@ -40,11 +40,11 @@ class Settings:
     tts_enable: bool = _env_flag("ANNA_TTS_ENABLE", "0")
     browser_enable: bool = _env_flag("ANNA_BROWSER_ENABLE", "0")
     windows_control_enable: bool = _env_flag("ANNA_WINDOWS_CONTROL_ENABLE", "0")
+    mouse_enable: bool = _env_flag("ANNA_MOUSE_ENABLE", "0")
 
 
 settings = Settings()
 
-# Backwards-compatible module-level exports
 APP_NAME = settings.app_name
 VERSION = settings.version
 LOG_LEVEL = settings.log_level
@@ -54,3 +54,4 @@ DATA_DIR = settings.data_dir
 ANNA_TTS_ENABLE = settings.tts_enable
 ANNA_BROWSER_ENABLE = settings.browser_enable
 ANNA_WINDOWS_CONTROL_ENABLE = settings.windows_control_enable
+ANNA_MOUSE_ENABLE = settings.mouse_enable
