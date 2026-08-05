@@ -55,6 +55,7 @@ class Reasoner:
             "  press <key>                  Press a key (DISABLED by default)\n"
             "  hotkey <k1>+<k2>+...         Press a hotkey combo (DISABLED by default)\n"
             "  listen                       Listen once on mic (DISABLED by default)\n"
+            "  mics                         List microphone devices (DISABLED by default)\n"
             "\n"
             "Learning (saved in data/memory.json):\n"
             "  remember <key> = <value>     Save a fact\n"
@@ -244,6 +245,16 @@ class Reasoner:
                 self._append_history("assistant", reply)
                 return reply
 
+            if cmd_l in {"mics", "miclist"}:
+                names = stt.list_microphones()
+                if not names:
+                    reply = f"{self.name}: No microphones found."
+                    self._append_history("assistant", reply)
+                    return reply
+                lines = [f"{i}: {n}" for i, n in enumerate(names)]
+                reply = f"{self.name}: Microphones:\n" + "\n".join(lines)
+                self._append_history("assistant", reply)
+                return reply
             if cmd_l in {"listen", "mic"}:
                 phrase = stt.listen_once()
                 reply = f"{self.name}: Heard: {phrase}"
@@ -413,5 +424,6 @@ class Reasoner:
 
 
 reasoner = Reasoner()
+
 
 
