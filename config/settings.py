@@ -1,4 +1,4 @@
-﻿# ANNA-AI settings (stage 5: add mouse flag)
+﻿# ANNA-AI settings (stage 6: add keyboard flag)
 
 from __future__ import annotations
 
@@ -41,6 +41,7 @@ class Settings:
     browser_enable: bool = _env_flag("ANNA_BROWSER_ENABLE", "0")
     windows_control_enable: bool = _env_flag("ANNA_WINDOWS_CONTROL_ENABLE", "0")
     mouse_enable: bool = _env_flag("ANNA_MOUSE_ENABLE", "0")
+    keyboard_enable: bool = _env_flag("ANNA_KEYBOARD_ENABLE", "0")
 
 
 settings = Settings()
@@ -55,3 +56,4 @@ ANNA_TTS_ENABLE = settings.tts_enable
 ANNA_BROWSER_ENABLE = settings.browser_enable
 ANNA_WINDOWS_CONTROL_ENABLE = settings.windows_control_enable
 ANNA_MOUSE_ENABLE = settings.mouse_enable
+ANNA_KEYBOARD_ENABLE = settings.keyboard_enable
