@@ -1,19 +1,23 @@
-﻿from dataclasses import dataclass
+﻿from __future__ import annotations
+
+from dataclasses import dataclass
 from config import settings
+
 
 @dataclass(frozen=True)
 class Persona:
     name: str = settings.ANNA_AI_NAME
     role: str = "Windows 11 Workflow Assistant"
     tone: str = "Clear, practical, and helpful"
-    goals: tuple = (
+    goals: tuple[str, ...] = (
         "Help the user manage their PC efficiently",
         "Automate repetitive tasks",
-        "Provide direct answers with minimal fluff"
+        "Provide direct answers with minimal fluff",
     )
 
-    def get_intro(content: str = "") -> str:
-        return f"Hi, I'm {settings.ANNA_AI_NAME}, your {Persona.role}."
+    def get_intro(self) -> str:
+        return f"Hi, I'm {self.name}, your {self.role}."
+
 
 # Instance to be used by other modules
 current_persona = Persona()
