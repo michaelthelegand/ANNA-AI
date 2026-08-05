@@ -60,6 +60,12 @@ class Reasoner:
             "  forget <key>                 Delete a fact\n"
             "  facts                        List saved fact keys\n"
             "\n"
+            "TODOs (saved in data/memory.json):\n"
+            "  todo add <text>              Add a todo\n"
+            "  todo list [all]              List todos (default hides done)\n"
+            "  todo done <id>               Mark todo as done by id\n"
+            "  todo clear                   Clear all todos\n"
+            "\n"
             "History (saved in data/memory.json):\n"
             "  history [n]                  Show last n messages (default: 20)\n"
             "  clearhistory                 Clear chat history\n"
@@ -236,7 +242,7 @@ class Reasoner:
                 self._append_history("assistant", reply)
                 return reply
 
-            # Learning
+            # Learning: facts
             if cmd_l == "remember":
                 if not arg:
                     reply = f"{self.name}: Usage: remember <key> = <value>"
@@ -284,6 +290,64 @@ class Reasoner:
             if cmd_l == "facts":
                 keys = learner.list_keys()
                 reply = f"{self.name}: No facts saved." if not keys else (f"{self.name}: Facts keys:\n" + "\n".join(keys))
+                self._append_history("assistant", reply)
+                return reply
+
+            # TODO commands
+            if cmd_l == "todo":
+                if not arg:
+                    reply = f"{self.name}: Usage: todo add <text> | todo list [all] | todo done <id> | todo clear"
+                    self._append_history("assistant", reply)
+                    return reply
+
+                sub, *rest2 = arg.split(maxsplit=1)
+                sub_l = sub.lower()
+                sub_arg = rest2[0].strip() if rest2 else ""
+
+                if sub_l == "add":
+                    item = learner.todo_add(sub_arg)
+                    reply = f"{self.name}: Added TODO #{item.get('id')}: {item.get('text')}"
+                    self._append_history("assistant", reply)
+                    return reply
+
+                if sub_l == "list":
+                    include_done = sub_arg.strip().lower() == "all"
+                    todos = learner.todo_list(include_done=include_done)
+                    if not todos:
+                        reply = f"{self.name}: No todos."
+                        self._append_history("assistant", reply)
+                        return reply
+                    lines = []
+                    for t in todos:
+                        mark = "✓" if t.get("done") else " "
+                        lines.append(f"[{mark}] #{t.get('id')}: {t.get('text')}")
+                    reply = f"{self.name}: TODOs:\n" + "\n".join(lines)
+                    self._append_history("assistant", reply)
+                    return reply
+
+                if sub_l == "done":
+                    if not sub_arg:
+                        reply = f"{self.name}: Usage: todo done <id>"
+                        self._append_history("assistant", reply)
+                        return reply
+                    try:
+                        todo_id = int(sub_arg)
+                    except Exception:
+                        reply = f"{self.name}: Invalid id: {sub_arg}"
+                        self._append_history("assistant", reply)
+                        return reply
+                    ok = learner.todo_done(todo_id)
+                    reply = f"{self.name}: Marked TODO #{todo_id} done." if ok else f"{self.name}: TODO #{todo_id} not found (or already done)."
+                    self._append_history("assistant", reply)
+                    return reply
+
+                if sub_l == "clear":
+                    learner.todo_clear()
+                    reply = f"{self.name}: Cleared all todos."
+                    self._append_history("assistant", reply)
+                    return reply
+
+                reply = f"{self.name}: Usage: todo add <text> | todo list [all] | todo done <id> | todo clear"
                 self._append_history("assistant", reply)
                 return reply
 
