@@ -4,6 +4,7 @@ from dataclasses import dataclass
 
 from brain.personality import current_persona
 from brain.memory import memory
+from tools.files import FileToolError, files_tool
 
 
 @dataclass
@@ -11,11 +12,82 @@ class Reasoner:
     # Placeholder: later we will plug in an LLM + tools + RAG here.
     name: str = current_persona.name
 
-    def respond(self, user_text: str) -> str:
-        memory.set("last_user_text", user_text)
+    def _help_text(self) -> str:
         return (
-            f"{self.name}: I heard: '{user_text}'. "
-            "Reasoning is placeholder right now (LLM not connected yet)."
+            "Commands:\n"
+            "  help                     Show this help\n"
+            "  ls [path]                List a folder (default: .)\n"
+            "  read <path>              Read a text file\n"
+            "  exists <path>            Check if a path exists\n"
+            "  write <path> :: <text>   Create a new text file (no overwrite)\n"
+            "\n"
+            "Notes:\n"
+            "  - Paths are restricted to the ANNA-AI project folder for safety.\n"
+        )
+
+    def respond(self, user_text: str) -> str:
+        text = (user_text or "").strip()
+        memory.set("last_user_text", text)
+
+        if not text:
+            return f"{self.name}: Say something or type 'help'."
+
+        cmd, *rest = text.split(maxsplit=1)
+        cmd_l = cmd.lower()
+        arg = rest[0].strip() if rest else ""
+
+        try:
+            if cmd_l in {"help", "?"}:
+                return f"{self.name}:\n{self._help_text()}"
+
+            if cmd_l in {"ls", "dir"}:
+                path = arg if arg else "."
+                items = files_tool.list_dir(path)
+                if not items:
+                    return f"{self.name}: (empty) {path}"
+
+                lines = []
+                for it in items:
+                    if it["is_dir"]:
+                        lines.append(f"{it['name']}/")
+                    else:
+                        size = it.get("size")
+                        lines.append(f"{it['name']} ({size} bytes)" if size is not None else it["name"])
+                return f"{self.name}: Listing {path}\n" + "\n".join(lines)
+
+            if cmd_l == "exists":
+                if not arg:
+                    return f"{self.name}: Usage: exists <path>"
+                return f"{self.name}: {arg} -> {files_tool.exists(arg)}"
+
+            if cmd_l == "read":
+                if not arg:
+                    return f"{self.name}: Usage: read <path>"
+                content = files_tool.read_text(arg)
+                max_chars = 4000
+                out = content[:max_chars]
+                if len(content) > max_chars:
+                    out += "\n...[truncated]..."
+                return f"{self.name}: Contents of {arg}\n{out}"
+
+            if cmd_l == "write":
+                if not arg or "::" not in arg:
+                    return f"{self.name}: Usage: write <path> :: <text>"
+                target, content = arg.split("::", 1)
+                target = target.strip()
+                content = content.lstrip()
+                p = files_tool.write_text(target, content, overwrite=False)
+                rel = p.relative_to(files_tool.base_dir)
+                return f"{self.name}: Wrote {len(content)} chars -> {rel}"
+
+        except FileToolError as e:
+            return f"{self.name}: File error: {e}"
+        except Exception as e:
+            return f"{self.name}: Error: {e}"
+
+        return (
+            f"{self.name}: I heard: '{text}'. "
+            "Reasoning is still placeholder (LLM not connected yet). Type 'help' for commands."
         )
 
 
