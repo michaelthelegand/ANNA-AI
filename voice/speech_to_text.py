@@ -22,6 +22,9 @@ class SpeechToText:
     language: str = "en-US"
     last_wav_path: Path = settings.DATA_DIR / "stt_last.wav"
 
+    # Probe records a fixed duration so it never "times out waiting for speech"
+    probe_duration_sec: float = 3.0
+
     def _device_default_sample_rate(self) -> int | None:
         if self.device_index is None:
             return None
@@ -114,8 +117,8 @@ class SpeechToText:
 
     def probe(self) -> dict[str, Any]:
         """
-        Captures a short chunk and saves WAV (no recognition).
-        Returns a dict even if it times out (so it won't crash scripts).
+        Records a fixed duration (no "waiting for phrase") and saves WAV.
+        Always returns a dict (so it won't crash scripts).
         """
         if not self.enabled:
             raise SpeechToTextError("STT is disabled. Set ANNA_STT_ENABLE=1 to enable.")
@@ -131,17 +134,16 @@ class SpeechToText:
         try:
             with sr.Microphone(device_index=self.device_index, sample_rate=sample_rate) as source:
                 r.adjust_for_ambient_noise(source, duration=0.6)
-                try:
-                    audio = r.listen(source, timeout=6, phrase_time_limit=3)
-                except sr.WaitTimeoutError:
-                    return {
-                        "ok": False,
-                        "error": "timeout_waiting_for_speech",
-                        "device_index": self.device_index,
-                        "sample_rate": sample_rate,
-                    }
+                audio = r.record(source, duration=float(self.probe_duration_sec))
         except Exception as e:
-            raise SpeechToTextError(f"Probe mic error ({type(e).__name__}): {e!r}")
+            return {
+                "ok": False,
+                "error": f"probe_record_failed ({type(e).__name__}): {e!r}",
+                "device_index": self.device_index,
+                "sample_rate": sample_rate,
+            }
+
+        rms, peak, clipped = self._audio_stats(audio)
 
         try:
             saved_path = self._save_wav(audio)
@@ -151,16 +153,23 @@ class SpeechToText:
                 "error": f"wav_save_failed ({type(e).__name__}): {e!r}",
                 "device_index": self.device_index,
                 "sample_rate": sample_rate,
+                "rms": rms,
+                "peak": peak,
+                "clipped": clipped,
             }
 
-        rms, peak, clipped = self._audio_stats(audio)
+        # Very rough silence heuristic
+        silent = rms < 300
+
         return {
             "ok": True,
             "device_index": self.device_index,
             "sample_rate": sample_rate,
+            "duration_sec": float(self.probe_duration_sec),
             "rms": rms,
             "peak": peak,
             "clipped": clipped,
+            "silent_guess": silent,
             "wav": str(saved_path),
         }
 
