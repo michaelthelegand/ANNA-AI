@@ -255,8 +255,7 @@ class Reasoner:
                 reply = f"{self.name}: Microphones:\n" + "\n".join(lines)
                 self._append_history("assistant", reply)
                 return reply
-            if cmd_l in {"listen", "mic"}:
-                phrase = stt.listen_once()
+            if cmd_l in {"listen", "mic"}:`r`n                print(f"{self.name}: Listening...")`r`n                phrase = stt.listen_once()
                 reply = f"{self.name}: Heard: {phrase}"
                 self._append_history("assistant", reply)
                 return reply
@@ -424,6 +423,7 @@ class Reasoner:
 
 
 reasoner = Reasoner()
+
 
 
 
