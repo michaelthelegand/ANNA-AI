@@ -1,0 +1,2 @@
+﻿# ANNA-AI (placeholder)
+# Add dependencies later as we implement modules.
