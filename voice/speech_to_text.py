@@ -2,6 +2,7 @@
 
 import audioop
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
@@ -73,10 +74,6 @@ class SpeechToText:
     def list_microphones(self) -> list[str]:
         return [d["name"] for d in self.list_input_devices()]
 
-    def _save_wav(self, audio) -> None:
-        settings.DATA_DIR.mkdir(parents=True, exist_ok=True)
-        self.last_wav_path.write_bytes(audio.get_wav_data())
-
     def _audio_stats(self, audio) -> tuple[int, int, bool]:
         raw = audio.get_raw_data()
         sw = getattr(audio, "sample_width", 2) or 2
@@ -84,6 +81,36 @@ class SpeechToText:
         rms = audioop.rms(raw, sw) if raw else 0
         clipped = peak >= 32000
         return rms, peak, clipped
+
+    def _fallback_wav_path(self) -> Path:
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        return settings.DATA_DIR / f"stt_last_{ts}.wav"
+
+    def _save_wav_bytes(self, wav_bytes: bytes) -> Path:
+        settings.DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+        target = self.last_wav_path
+        tmp = target.with_suffix(target.suffix + ".tmp")
+
+        try:
+            tmp.write_bytes(wav_bytes)
+            tmp.replace(target)  # atomic replace
+            return target
+        except PermissionError:
+            # If user is currently playing stt_last.wav, it can be locked.
+            alt = self._fallback_wav_path()
+            alt.write_bytes(wav_bytes)
+            self.last_wav_path = alt
+            return alt
+        finally:
+            try:
+                if tmp.exists():
+                    tmp.unlink()
+            except Exception:
+                pass
+
+    def _save_wav(self, audio) -> Path:
+        return self._save_wav_bytes(audio.get_wav_data())
 
     def probe(self) -> dict[str, Any]:
         """
@@ -116,7 +143,16 @@ class SpeechToText:
         except Exception as e:
             raise SpeechToTextError(f"Probe mic error ({type(e).__name__}): {e!r}")
 
-        self._save_wav(audio)
+        try:
+            saved_path = self._save_wav(audio)
+        except Exception as e:
+            return {
+                "ok": False,
+                "error": f"wav_save_failed ({type(e).__name__}): {e!r}",
+                "device_index": self.device_index,
+                "sample_rate": sample_rate,
+            }
+
         rms, peak, clipped = self._audio_stats(audio)
         return {
             "ok": True,
@@ -125,7 +161,7 @@ class SpeechToText:
             "rms": rms,
             "peak": peak,
             "clipped": clipped,
-            "wav": str(self.last_wav_path),
+            "wav": str(saved_path),
         }
 
     def listen_once(self) -> str:
@@ -156,13 +192,22 @@ class SpeechToText:
         except Exception as e:
             raise SpeechToTextError(f"Microphone error ({type(e).__name__}): {e!r}")
 
-        self._save_wav(audio)
+        # Save capture for debugging (but don't block recognition if save fails)
+        save_note = ""
+        try:
+            saved_path = self._save_wav(audio)
+        except Exception as e:
+            saved_path = None
+            save_note = f" wav_save_failed={type(e).__name__}:{e!r}"
+
         rms, peak, clipped = self._audio_stats(audio)
 
         debug = f"device_index={self.device_index} sample_rate={sample_rate} lang={self.language} rms={rms} peak={peak}"
         if clipped:
             debug += " (CLIPPED: lower mic volume)"
-        debug += f" wav={self.last_wav_path}"
+        if saved_path:
+            debug += f" wav={saved_path}"
+        debug += save_note
 
         try:
             result = r.recognize_google(audio, language=self.language, show_all=True)
