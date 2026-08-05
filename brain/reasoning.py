@@ -6,8 +6,9 @@ from datetime import datetime, timezone
 from brain.learning import learner
 from brain.personality import current_persona
 from brain.memory import memory
-from control.windows import WindowsControlError, windows_control
+from control.keyboard import KeyboardControlError, keyboard_control
 from control.mouse import MouseControlError, mouse_control
+from control.windows import WindowsControlError, windows_control
 from tools.browser import BrowserToolError, browser_tool
 from tools.files import FileToolError, files_tool
 from tools.terminal import TerminalToolError, terminal_tool
@@ -49,6 +50,9 @@ class Reasoner:
             "  openurl <https://...>        Open a URL in default browser (DISABLED by default)\n"
             "  openpath <path>              Open a file/folder (DISABLED by default)\n"
             "  mousepos                     Get mouse position (DISABLED by default)\n"
+            "  type <text>                  Type text (DISABLED by default)\n"
+            "  press <key>                  Press a key (DISABLED by default)\n"
+            "  hotkey <k1>+<k2>+...         Press a hotkey combo (DISABLED by default)\n"
             "\n"
             "Learning (saved in data/memory.json):\n"
             "  remember <key> = <value>     Save a fact\n"
@@ -64,7 +68,9 @@ class Reasoner:
             "  - Paths are restricted to the ANNA-AI project folder for safety.\n"
             "  - Terminal needs ANNA_TERMINAL_ENABLE=1.\n"
             "  - Browser needs ANNA_BROWSER_ENABLE=1.\n"
-            "  - Windows control needs ANNA_WINDOWS_CONTROL_ENABLE=1.\n  - Mouse needs ANNA_MOUSE_ENABLE=1.\n"
+            "  - Windows control needs ANNA_WINDOWS_CONTROL_ENABLE=1.\n"
+            "  - Mouse needs ANNA_MOUSE_ENABLE=1.\n"
+            "  - Keyboard needs ANNA_KEYBOARD_ENABLE=1.\n"
         )
 
     def respond(self, user_text: str) -> str:
@@ -179,11 +185,6 @@ class Reasoner:
                 self._append_history("assistant", reply)
                 return reply
 
-            if cmd_l == "mousepos":
-                pos = mouse_control.position()
-                reply = f"{self.name}: Mouse position x={pos.get('x')} y={pos.get('y')}"
-                self._append_history("assistant", reply)
-                return reply
             if cmd_l == "openpath":
                 if not arg:
                     reply = f"{self.name}: Usage: openpath <path>"
@@ -191,6 +192,47 @@ class Reasoner:
                     return reply
                 windows_control.open_path(arg)
                 reply = f"{self.name}: Opened path: {arg}"
+                self._append_history("assistant", reply)
+                return reply
+
+            if cmd_l == "mousepos":
+                pos = mouse_control.position()
+                reply = f"{self.name}: Mouse position x={pos.get('x')} y={pos.get('y')}"
+                self._append_history("assistant", reply)
+                return reply
+
+            if cmd_l == "type":
+                if not arg:
+                    reply = f"{self.name}: Usage: type <text>"
+                    self._append_history("assistant", reply)
+                    return reply
+                r = keyboard_control.type_text(arg)
+                reply = f"{self.name}: Typed {r.get('chars')} chars."
+                self._append_history("assistant", reply)
+                return reply
+
+            if cmd_l == "press":
+                if not arg:
+                    reply = f"{self.name}: Usage: press <key>"
+                    self._append_history("assistant", reply)
+                    return reply
+                r = keyboard_control.press(arg)
+                reply = f"{self.name}: Pressed {r.get('key')}."
+                self._append_history("assistant", reply)
+                return reply
+
+            if cmd_l == "hotkey":
+                if not arg:
+                    reply = f"{self.name}: Usage: hotkey <k1>+<k2>+..."
+                    self._append_history("assistant", reply)
+                    return reply
+                keys = [k.strip() for k in arg.split("+") if k.strip()]
+                if len(keys) < 2:
+                    reply = f"{self.name}: Usage: hotkey <k1>+<k2>+..."
+                    self._append_history("assistant", reply)
+                    return reply
+                keyboard_control.hotkey(*keys)
+                reply = f"{self.name}: Hotkey pressed: {'+'.join(keys)}."
                 self._append_history("assistant", reply)
                 return reply
 
@@ -274,7 +316,14 @@ class Reasoner:
                 self._append_history("assistant", reply)
                 return reply
 
-        except (FileToolError, TerminalToolError, BrowserToolError, WindowsControlError, MouseControlError) as e:
+        except (
+            FileToolError,
+            TerminalToolError,
+            BrowserToolError,
+            WindowsControlError,
+            MouseControlError,
+            KeyboardControlError,
+        ) as e:
             reply = f"{self.name}: Tool error: {e}"
             self._append_history("assistant", reply)
             return reply
@@ -292,4 +341,3 @@ class Reasoner:
 
 
 reasoner = Reasoner()
-
