@@ -12,6 +12,7 @@ from control.windows import WindowsControlError, windows_control
 from tools.browser import BrowserToolError, browser_tool
 from tools.files import FileToolError, files_tool
 from tools.terminal import TerminalToolError, terminal_tool
+from voice.speech_to_text import SpeechToTextError, stt
 
 
 @dataclass
@@ -53,6 +54,7 @@ class Reasoner:
             "  type <text>                  Type text (DISABLED by default)\n"
             "  press <key>                  Press a key (DISABLED by default)\n"
             "  hotkey <k1>+<k2>+...         Press a hotkey combo (DISABLED by default)\n"
+            "  listen                       Listen once on mic (DISABLED by default)\n"
             "\n"
             "Learning (saved in data/memory.json):\n"
             "  remember <key> = <value>     Save a fact\n"
@@ -242,6 +244,11 @@ class Reasoner:
                 self._append_history("assistant", reply)
                 return reply
 
+            if cmd_l in {"listen", "mic"}:
+                phrase = stt.listen_once()
+                reply = f"{self.name}: Heard: {phrase}"
+                self._append_history("assistant", reply)
+                return reply
             # Learning: facts
             if cmd_l == "remember":
                 if not arg:
@@ -405,3 +412,4 @@ class Reasoner:
 
 
 reasoner = Reasoner()
+
