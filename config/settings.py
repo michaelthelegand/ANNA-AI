@@ -1,4 +1,4 @@
-﻿# ANNA-AI settings (stage 2: .env loader + feature flags)
+﻿# ANNA-AI settings (stage 3: add browser flag)
 
 from __future__ import annotations
 
@@ -39,6 +39,7 @@ class Settings:
 
     # Feature flags
     tts_enable: bool = _env_flag("ANNA_TTS_ENABLE", "0")
+    browser_enable: bool = _env_flag("ANNA_BROWSER_ENABLE", "0")
 
 
 settings = Settings()
@@ -50,3 +51,4 @@ LOG_LEVEL = settings.log_level
 ANNA_AI_NAME = settings.anna_ai_name
 DATA_DIR = settings.data_dir
 ANNA_TTS_ENABLE = settings.tts_enable
+ANNA_BROWSER_ENABLE = settings.browser_enable

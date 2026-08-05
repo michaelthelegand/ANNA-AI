@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from brain.learning import learner
 from brain.personality import current_persona
 from brain.memory import memory
+from tools.browser import BrowserToolError, browser_tool
 from tools.files import FileToolError, files_tool
 from tools.terminal import TerminalToolError, terminal_tool
 
@@ -23,6 +24,8 @@ class Reasoner:
             "  exists <path>                Check if a path exists\n"
             "  write <path> :: <text>       Create a new text file (no overwrite)\n"
             "  run <command>                Run an allowlisted command (DISABLED by default)\n"
+            "  search <query>               Open a web search (DISABLED by default)\n"
+            "  openurl <https://...>        Open a URL in default browser (DISABLED by default)\n"
             "\n"
             "Learning (saved in data/memory.json):\n"
             "  remember <key> = <value>     Save a fact\n"
@@ -32,7 +35,8 @@ class Reasoner:
             "\n"
             "Notes:\n"
             "  - Paths are restricted to the ANNA-AI project folder for safety.\n"
-            "  - Terminal is allowlisted + no-shell, but you must enable it with ANNA_TERMINAL_ENABLE=1.\n"
+            "  - Terminal needs ANNA_TERMINAL_ENABLE=1.\n"
+            "  - Browser needs ANNA_BROWSER_ENABLE=1.\n"
         )
 
     def respond(self, user_text: str) -> str:
@@ -103,6 +107,18 @@ class Reasoner:
                     parts.append("stderr:\n" + stderr)
                 return "\n".join(parts)
 
+            if cmd_l == "search":
+                if not arg:
+                    return f"{self.name}: Usage: search <query>"
+                r = browser_tool.search(arg)
+                return f"{self.name}: Opened search for '{r.get('query')}'."
+
+            if cmd_l == "openurl":
+                if not arg:
+                    return f"{self.name}: Usage: openurl <https://...>"
+                r = browser_tool.open_url(arg)
+                return f"{self.name}: Opened URL."
+
             # Learning commands
             if cmd_l == "remember":
                 if not arg:
@@ -138,7 +154,7 @@ class Reasoner:
                     return f"{self.name}: No facts saved."
                 return f"{self.name}: Facts keys:\n" + "\n".join(keys)
 
-        except (FileToolError, TerminalToolError) as e:
+        except (FileToolError, TerminalToolError, BrowserToolError) as e:
             return f"{self.name}: Tool error: {e}"
         except Exception as e:
             return f"{self.name}: Error: {e}"
