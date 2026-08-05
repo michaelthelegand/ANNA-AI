@@ -47,8 +47,8 @@ class Reasoner:
             "  run <command>                Run an allowlisted command (DISABLED by default)\n"
             "  search <query>               Open a web search (DISABLED by default)\n"
             "  openurl <https://...>        Open a URL in default browser (DISABLED by default)\n"
-            "  openpath <path>              Open a file/folder (DISABLED by default)
-  mousepos                     Get mouse position (DISABLED by default)\n"
+            "  openpath <path>              Open a file/folder (DISABLED by default)\n"
+            "  mousepos                     Get mouse position (DISABLED by default)\n"
             "\n"
             "Learning (saved in data/memory.json):\n"
             "  remember <key> = <value>     Save a fact\n"
