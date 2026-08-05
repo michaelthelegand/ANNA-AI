@@ -1,5 +1,7 @@
-﻿def main():
-    print("ANNA-AI scaffold is set up (placeholders only).")
+﻿from config import settings
+
+def main():
+    print(f"{settings.APP_NAME} v{settings.VERSION} (scaffold; placeholders only).")
 
 if __name__ == "__main__":
     main()
