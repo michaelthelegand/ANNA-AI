@@ -1,6 +1,7 @@
 ﻿from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime, timezone
 
 from brain.learning import learner
 from brain.personality import current_persona
@@ -14,6 +15,26 @@ from tools.terminal import TerminalToolError, terminal_tool
 class Reasoner:
     # Placeholder: later we will plug in an LLM + tools + RAG here.
     name: str = current_persona.name
+    history_key: str = "chat_history"
+    max_history_items: int = 100
+
+    def _now_utc(self) -> str:
+        return datetime.now(timezone.utc).isoformat()
+
+    def _load_history(self) -> list[dict]:
+        h = memory.get(self.history_key, [])
+        return h if isinstance(h, list) else []
+
+    def _save_history(self, h: list[dict]) -> None:
+        # keep last N items
+        if len(h) > self.max_history_items:
+            h = h[-self.max_history_items :]
+        memory.set(self.history_key, h)
+
+    def _append_history(self, role: str, text: str) -> None:
+        h = self._load_history()
+        h.append({"ts_utc": self._now_utc(), "role": role, "text": text})
+        self._save_history(h)
 
     def _help_text(self) -> str:
         return (
@@ -33,6 +54,10 @@ class Reasoner:
             "  forget <key>                 Delete a fact\n"
             "  facts                        List saved fact keys\n"
             "\n"
+            "History (saved in data/memory.json):\n"
+            "  history [n]                  Show last n messages (default: 20)\n"
+            "  clearhistory                 Clear chat history\n"
+            "\n"
             "Notes:\n"
             "  - Paths are restricted to the ANNA-AI project folder for safety.\n"
             "  - Terminal needs ANNA_TERMINAL_ENABLE=1.\n"
@@ -46,19 +71,26 @@ class Reasoner:
         if not text:
             return f"{self.name}: Say something or type 'help'."
 
+        # record user message
+        self._append_history("user", text)
+
         cmd, *rest = text.split(maxsplit=1)
         cmd_l = cmd.lower()
         arg = rest[0].strip() if rest else ""
 
         try:
             if cmd_l in {"help", "?"}:
-                return f"{self.name}:\n{self._help_text()}"
+                reply = f"{self.name}:\n{self._help_text()}"
+                self._append_history("assistant", reply)
+                return reply
 
             if cmd_l in {"ls", "dir"}:
                 path = arg if arg else "."
                 items = files_tool.list_dir(path)
                 if not items:
-                    return f"{self.name}: (empty) {path}"
+                    reply = f"{self.name}: (empty) {path}"
+                    self._append_history("assistant", reply)
+                    return reply
 
                 lines = []
                 for it in items:
@@ -67,36 +99,52 @@ class Reasoner:
                     else:
                         size = it.get("size")
                         lines.append(f"{it['name']} ({size} bytes)" if size is not None else it["name"])
-                return f"{self.name}: Listing {path}\n" + "\n".join(lines)
+                reply = f"{self.name}: Listing {path}\n" + "\n".join(lines)
+                self._append_history("assistant", reply)
+                return reply
 
             if cmd_l == "exists":
                 if not arg:
-                    return f"{self.name}: Usage: exists <path>"
-                return f"{self.name}: {arg} -> {files_tool.exists(arg)}"
+                    reply = f"{self.name}: Usage: exists <path>"
+                    self._append_history("assistant", reply)
+                    return reply
+                reply = f"{self.name}: {arg} -> {files_tool.exists(arg)}"
+                self._append_history("assistant", reply)
+                return reply
 
             if cmd_l == "read":
                 if not arg:
-                    return f"{self.name}: Usage: read <path>"
+                    reply = f"{self.name}: Usage: read <path>"
+                    self._append_history("assistant", reply)
+                    return reply
                 content = files_tool.read_text(arg)
                 max_chars = 4000
                 out = content[:max_chars]
                 if len(content) > max_chars:
                     out += "\n...[truncated]..."
-                return f"{self.name}: Contents of {arg}\n{out}"
+                reply = f"{self.name}: Contents of {arg}\n{out}"
+                self._append_history("assistant", reply)
+                return reply
 
             if cmd_l == "write":
                 if not arg or "::" not in arg:
-                    return f"{self.name}: Usage: write <path> :: <text>"
+                    reply = f"{self.name}: Usage: write <path> :: <text>"
+                    self._append_history("assistant", reply)
+                    return reply
                 target, content = arg.split("::", 1)
                 target = target.strip()
                 content = content.lstrip()
                 p = files_tool.write_text(target, content, overwrite=False)
                 rel = p.relative_to(files_tool.base_dir)
-                return f"{self.name}: Wrote {len(content)} chars -> {rel}"
+                reply = f"{self.name}: Wrote {len(content)} chars -> {rel}"
+                self._append_history("assistant", reply)
+                return reply
 
             if cmd_l == "run":
                 if not arg:
-                    return f"{self.name}: Usage: run <command>"
+                    reply = f"{self.name}: Usage: run <command>"
+                    self._append_history("assistant", reply)
+                    return reply
                 r = terminal_tool.run(arg)
                 stdout = (r.get("stdout") or "").strip()
                 stderr = (r.get("stderr") or "").strip()
@@ -105,26 +153,40 @@ class Reasoner:
                     parts.append("stdout:\n" + stdout)
                 if stderr:
                     parts.append("stderr:\n" + stderr)
-                return "\n".join(parts)
+                reply = "\n".join(parts)
+                self._append_history("assistant", reply)
+                return reply
 
             if cmd_l == "search":
                 if not arg:
-                    return f"{self.name}: Usage: search <query>"
+                    reply = f"{self.name}: Usage: search <query>"
+                    self._append_history("assistant", reply)
+                    return reply
                 r = browser_tool.search(arg)
-                return f"{self.name}: Opened search for '{r.get('query')}'."
+                reply = f"{self.name}: Opened search for '{r.get('query')}'."
+                self._append_history("assistant", reply)
+                return reply
 
             if cmd_l == "openurl":
                 if not arg:
-                    return f"{self.name}: Usage: openurl <https://...>"
-                r = browser_tool.open_url(arg)
-                return f"{self.name}: Opened URL."
+                    reply = f"{self.name}: Usage: openurl <https://...>"
+                    self._append_history("assistant", reply)
+                    return reply
+                browser_tool.open_url(arg)
+                reply = f"{self.name}: Opened URL."
+                self._append_history("assistant", reply)
+                return reply
 
             # Learning commands
             if cmd_l == "remember":
                 if not arg:
-                    return f"{self.name}: Usage: remember <key> = <value>"
+                    reply = f"{self.name}: Usage: remember <key> = <value>"
+                    self._append_history("assistant", reply)
+                    return reply
                 if ("=" not in arg) and ("::" not in arg):
-                    return f"{self.name}: Usage: remember <key> = <value>"
+                    reply = f"{self.name}: Usage: remember <key> = <value>"
+                    self._append_history("assistant", reply)
+                    return reply
                 if "::" in arg:
                     key, value = arg.split("::", 1)
                 else:
@@ -132,37 +194,84 @@ class Reasoner:
                 key = key.strip()
                 value = value.strip()
                 learner.remember(key, value)
-                return f"{self.name}: Remembered {key}."
+                reply = f"{self.name}: Remembered {key}."
+                self._append_history("assistant", reply)
+                return reply
 
             if cmd_l == "recall":
                 if not arg:
-                    return f"{self.name}: Usage: recall <key>"
+                    reply = f"{self.name}: Usage: recall <key>"
+                    self._append_history("assistant", reply)
+                    return reply
                 val = learner.recall(arg, default=None)
                 if val is None:
-                    return f"{self.name}: I don't have '{arg}' saved."
-                return f"{self.name}: {arg} = {val}"
+                    reply = f"{self.name}: I don't have '{arg}' saved."
+                    self._append_history("assistant", reply)
+                    return reply
+                reply = f"{self.name}: {arg} = {val}"
+                self._append_history("assistant", reply)
+                return reply
 
             if cmd_l == "forget":
                 if not arg:
-                    return f"{self.name}: Usage: forget <key>"
+                    reply = f"{self.name}: Usage: forget <key>"
+                    self._append_history("assistant", reply)
+                    return reply
                 existed = learner.forget(arg)
-                return f"{self.name}: Deleted {arg}." if existed else f"{self.name}: Nothing to delete for {arg}."
+                reply = f"{self.name}: Deleted {arg}." if existed else f"{self.name}: Nothing to delete for {arg}."
+                self._append_history("assistant", reply)
+                return reply
 
             if cmd_l == "facts":
                 keys = learner.list_keys()
-                if not keys:
-                    return f"{self.name}: No facts saved."
-                return f"{self.name}: Facts keys:\n" + "\n".join(keys)
+                reply = f"{self.name}: No facts saved." if not keys else (f"{self.name}: Facts keys:\n" + "\n".join(keys))
+                self._append_history("assistant", reply)
+                return reply
+
+            # History commands
+            if cmd_l == "history":
+                n = 20
+                if arg:
+                    try:
+                        n = int(arg)
+                    except Exception:
+                        n = 20
+                h = self._load_history()[-max(1, n) :]
+                if not h:
+                    reply = f"{self.name}: History is empty."
+                    self._append_history("assistant", reply)
+                    return reply
+                lines = []
+                for item in h:
+                    role = item.get("role", "?")
+                    t = item.get("text", "")
+                    prefix = "You" if role == "user" else self.name
+                    lines.append(f"{prefix}: {t}")
+                reply = f"{self.name}: Last {len(h)} messages:\n" + "\n".join(lines)
+                self._append_history("assistant", reply)
+                return reply
+
+            if cmd_l == "clearhistory":
+                self._save_history([])
+                reply = f"{self.name}: History cleared."
+                self._append_history("assistant", reply)
+                return reply
 
         except (FileToolError, TerminalToolError, BrowserToolError) as e:
-            return f"{self.name}: Tool error: {e}"
+            reply = f"{self.name}: Tool error: {e}"
+            self._append_history("assistant", reply)
+            return reply
         except Exception as e:
-            return f"{self.name}: Error: {e}"
+            reply = f"{self.name}: Error: {e}"
+            self._append_history("assistant", reply)
+            return reply
 
-        return (
+        reply = (
             f"{self.name}: I heard: '{text}'. "
             "Reasoning is still placeholder (LLM not connected yet). Type 'help' for commands."
         )
+        self._append_history("assistant", reply)
+        return reply
 
 
 reasoner = Reasoner()
