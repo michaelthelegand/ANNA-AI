@@ -21,6 +21,24 @@ class SpeechToText:
     language: str = "en-US"
     last_wav_path: Path = settings.DATA_DIR / "stt_last.wav"
 
+    def _device_default_sample_rate(self) -> int | None:
+        if self.device_index is None:
+            return None
+        try:
+            import pyaudio
+        except Exception as e:
+            raise SpeechToTextError(f"PyAudio not installed: {e!r}")
+
+        pa = pyaudio.PyAudio()
+        try:
+            info = pa.get_device_info_by_index(int(self.device_index))
+            rate = info.get("defaultSampleRate", None)
+            return int(rate) if rate else None
+        except Exception as e:
+            raise SpeechToTextError(f"Failed to get device sample rate ({type(e).__name__}): {e!r}")
+        finally:
+            pa.terminate()
+
     def list_input_devices(self) -> list[dict[str, Any]]:
         if not self.enabled:
             raise SpeechToTextError("STT is disabled. Set ANNA_STT_ENABLE=1 to enable.")
@@ -51,13 +69,55 @@ class SpeechToText:
 
         return out
 
-    # Backward-compat helper (older Reasoner code used this)
+    # Backward-compat helper (Reasoner used this earlier)
     def list_microphones(self) -> list[str]:
         return [d["name"] for d in self.list_input_devices()]
 
     def _save_wav(self, audio) -> None:
         settings.DATA_DIR.mkdir(parents=True, exist_ok=True)
         self.last_wav_path.write_bytes(audio.get_wav_data())
+
+    def _audio_stats(self, audio) -> tuple[int, int, bool]:
+        raw = audio.get_raw_data()
+        sw = getattr(audio, "sample_width", 2) or 2
+        peak = audioop.max(raw, sw) if raw else 0
+        rms = audioop.rms(raw, sw) if raw else 0
+        clipped = peak >= 32000
+        return rms, peak, clipped
+
+    def probe(self) -> dict[str, Any]:
+        """
+        Captures a short chunk and saves WAV (no recognition).
+        Useful to confirm mic opens/closes cleanly for a device_index.
+        """
+        if not self.enabled:
+            raise SpeechToTextError("STT is disabled. Set ANNA_STT_ENABLE=1 to enable.")
+
+        try:
+            import speech_recognition as sr
+        except Exception as e:
+            raise SpeechToTextError(f"SpeechRecognition not installed: {e!r}")
+
+        r = sr.Recognizer()
+        sample_rate = self._device_default_sample_rate()
+
+        try:
+            with sr.Microphone(device_index=self.device_index, sample_rate=sample_rate) as source:
+                r.adjust_for_ambient_noise(source, duration=0.6)
+                audio = r.listen(source, timeout=3, phrase_time_limit=2)
+        except Exception as e:
+            raise SpeechToTextError(f"Probe mic error ({type(e).__name__}): {e!r}")
+
+        self._save_wav(audio)
+        rms, peak, clipped = self._audio_stats(audio)
+        return {
+            "device_index": self.device_index,
+            "sample_rate": sample_rate,
+            "rms": rms,
+            "peak": peak,
+            "clipped": clipped,
+            "wav": str(self.last_wav_path),
+        }
 
     def listen_once(self) -> str:
         if not self.enabled:
@@ -69,9 +129,10 @@ class SpeechToText:
             raise SpeechToTextError(f"SpeechRecognition not installed: {e!r}")
 
         r = sr.Recognizer()
+        sample_rate = self._device_default_sample_rate()
 
         try:
-            with sr.Microphone(device_index=self.device_index) as source:
+            with sr.Microphone(device_index=self.device_index, sample_rate=sample_rate) as source:
                 r.adjust_for_ambient_noise(source, duration=1.0)
                 try:
                     audio = r.listen(
@@ -86,29 +147,13 @@ class SpeechToText:
         except Exception as e:
             raise SpeechToTextError(f"Microphone error ({type(e).__name__}): {e!r}")
 
-        # Save capture for debugging
-        try:
-            self._save_wav(audio)
-            saved = True
-        except Exception as e:
-            saved = False
-            save_err = f"{type(e).__name__}: {e!r}"
+        self._save_wav(audio)
+        rms, peak, clipped = self._audio_stats(audio)
 
-        # Compute signal stats
-        raw = audio.get_raw_data()
-        sw = getattr(audio, "sample_width", 2) or 2
-        peak = audioop.max(raw, sw) if raw else 0
-        rms = audioop.rms(raw, sw) if raw else 0
-        clipped = peak >= 32000
-
-        debug = f"device_index={self.device_index} lang={self.language} rms={rms} peak={peak}"
+        debug = f"device_index={self.device_index} sample_rate={sample_rate} lang={self.language} rms={rms} peak={peak}"
         if clipped:
             debug += " (CLIPPED: lower mic volume)"
-
-        if saved:
-            debug += f" wav={self.last_wav_path}"
-        else:
-            debug += f" wav_save_error={save_err}"
+        debug += f" wav={self.last_wav_path}"
 
         # Recognize (online)
         try:
