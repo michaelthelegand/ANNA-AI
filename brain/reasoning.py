@@ -84,6 +84,7 @@ class Reasoner:
             "  - Terminal needs ANNA_TERMINAL_ENABLE=1.\n"
             "  - Browser needs ANNA_BROWSER_ENABLE=1.\n"
             "  - Windows control needs ANNA_WINDOWS_CONTROL_ENABLE=1.\n"
+            "  - Automation needs ANNA_AUTOMATION_ENABLE=1.\n"
             "  - Mouse needs ANNA_MOUSE_ENABLE=1.\n"
             "  - Keyboard needs ANNA_KEYBOARD_ENABLE=1.\n"
         )
