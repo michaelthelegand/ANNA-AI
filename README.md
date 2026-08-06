@@ -1,20 +1,31 @@
-﻿# ANNA-AI (Windows Desktop Assistant)
+# ANNA-AI (Windows Desktop Assistant)
 
-This is a Windows 11 Python desktop AI assistant project scaffold.
+ANNA-AI is a Windows 11 Python desktop assistant with a command-line interface.
 
-## Status
-- Project structure created
-- Placeholder modules only (no assistant logic yet)
+## Current status
 
-## Run (later)
-This project will be wired through main.py as modules are implemented step by step.
+- Interactive assistant loop through main.py
+- Configurable personality and reasoning
+- Persistent local memory
+- Optional text-to-speech support
+- Read-only automation status
+- Automation features disabled by default for safety
+
+## Run
+
+Run python main.py to start ANNA. Type help for available commands. Type exit or quit to close ANNA.
+
+## Configuration
+
+Copy .env.example to .env and adjust settings as needed. The .env file is ignored by Git and must never be committed.
 
 ## Folder overview
-- brain/      core logic (memory, reasoning, learning, personality)
-- voice/      speech-to-text, text-to-speech, wakeword
-- vision/     screen reader, image analyzer
-- control/    mouse/keyboard/windows automation
-- tools/      browser/files/internet/terminal helpers
-- knowledge/  RAG + vector DB layer
-- config/     settings
-- data/       local runtime data (ignored by git except .gitkeep)
+
+- brain/ - Core logic, memory, reasoning, learning, and personality
+- voice/ - Speech-to-text, text-to-speech, and wake-word support
+- vision/ - Screen reader and image analysis
+- control/ - Mouse, keyboard, Windows, and automation controls
+- tools/ - Browser, file, internet, and terminal helpers
+- knowledge/ - RAG and vector database layer
+- config/ - Application settings
+- data/ - Local runtime data
