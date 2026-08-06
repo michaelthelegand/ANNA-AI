@@ -1,4 +1,4 @@
-﻿# ANNA-AI settings (stage 7b: add STT device index)
+# ANNA-AI settings (stage 7b: add STT device index)
 
 from __future__ import annotations
 
@@ -52,6 +52,7 @@ class Settings:
     windows_control_enable: bool = _env_flag("ANNA_WINDOWS_CONTROL_ENABLE", "0")
     mouse_enable: bool = _env_flag("ANNA_MOUSE_ENABLE", "0")
     keyboard_enable: bool = _env_flag("ANNA_KEYBOARD_ENABLE", "0")
+    automation_enable: bool = _env_flag("ANNA_AUTOMATION_ENABLE", "0")
     stt_enable: bool = _env_flag("ANNA_STT_ENABLE", "0")
 
     # STT device selection (None = system default)
@@ -71,5 +72,6 @@ ANNA_BROWSER_ENABLE = settings.browser_enable
 ANNA_WINDOWS_CONTROL_ENABLE = settings.windows_control_enable
 ANNA_MOUSE_ENABLE = settings.mouse_enable
 ANNA_KEYBOARD_ENABLE = settings.keyboard_enable
+ANNA_AUTOMATION_ENABLE = settings.automation_enable
 ANNA_STT_ENABLE = settings.stt_enable
 ANNA_STT_DEVICE_INDEX = settings.stt_device_index

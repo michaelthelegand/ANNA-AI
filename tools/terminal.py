@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 import os
 import shlex
@@ -26,7 +26,7 @@ class TerminalTool:
     max_output_chars: int = 6000
 
     # Safety: allowlist executables (no shells).
-    allowlist: tuple[str, ...] = ("python", "git")
+    allowlist: tuple[str, ...] = ("where", "whoami")
 
     def run(self, command: str) -> dict[str, Any]:
         if not self.enabled:

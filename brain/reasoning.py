@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from brain.learning import learner
 from brain.personality import current_persona
 from brain.memory import memory
+from control.automation import automation
 from control.keyboard import KeyboardControlError, keyboard_control
 from control.mouse import MouseControlError, mouse_control
 from control.windows import WindowsControlError, windows_control
@@ -51,6 +52,7 @@ class Reasoner:
             "  openurl <https://...>        Open a URL in default browser (DISABLED by default)\n"
             "  openpath <path>              Open a file/folder (DISABLED by default)\n"
             "  mousepos                     Get mouse position (DISABLED by default)\n"
+            "  automation                  Show automation capability status\n"
             "  type <text>                  Type text (DISABLED by default)\n"
             "  press <key>                  Press a key (DISABLED by default)\n"
             "  hotkey <k1>+<k2>+...         Press a hotkey combo (DISABLED by default)\n"
@@ -209,6 +211,19 @@ class Reasoner:
             if cmd_l == "mousepos":
                 pos = mouse_control.position()
                 reply = f"{self.name}: Mouse position x={pos.get('x')} y={pos.get('y')}"
+                self._append_history("assistant", reply)
+                return reply
+
+            if cmd_l in {"automation", "autostatus"}:
+                info = automation.status()
+                reply = (
+                    f"{self.name}: Automation status:\n"
+                    f"  automation_enabled={info.get('automation_enabled')}\n"
+                    f"  keyboard_enabled={info.get('keyboard_enabled')}\n"
+                    f"  mouse_enabled={info.get('mouse_enabled')}\n"
+                    f"  windows_enabled={info.get('windows_enabled')}\n"
+                    f"  supported_actions={info.get('supported_actions')}"
+                )
                 self._append_history("assistant", reply)
                 return reply
 
