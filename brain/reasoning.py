@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -6,6 +6,7 @@ from datetime import datetime, timezone
 from brain.learning import learner
 from brain.personality import current_persona
 from brain.memory import memory
+from config.settings import settings
 from control.automation import automation
 from control.keyboard import KeyboardControlError, keyboard_control
 from control.mouse import MouseControlError, mouse_control
@@ -53,6 +54,7 @@ class Reasoner:
             "  openpath <path>              Open a file/folder (DISABLED by default)\n"
             "  mousepos                     Get mouse position (DISABLED by default)\n"
             "  automation                  Show automation capability status\n"
+            "  status                       Show ANNA-AI feature status\n"
             "  type <text>                  Type text (DISABLED by default)\n"
             "  press <key>                  Press a key (DISABLED by default)\n"
             "  hotkey <k1>+<k2>+...         Press a hotkey combo (DISABLED by default)\n"
@@ -223,6 +225,23 @@ class Reasoner:
                     f"  mouse_enabled={info.get('mouse_enabled')}\n"
                     f"  windows_enabled={info.get('windows_enabled')}\n"
                     f"  supported_actions={info.get('supported_actions')}"
+                )
+                self._append_history("assistant", reply)
+                return reply
+
+            if cmd_l in {"status", "systemstatus"}:
+                info = automation.status()
+                reply = (
+                    f"{self.name}: ANNA-AI status:\n"
+                    f"  app_name={settings.app_name}\n"
+                    f"  version={settings.version}\n"
+                    f"  tts_enabled={settings.tts_enable}\n"
+                    f"  browser_enabled={settings.browser_enable}\n"
+                    f"  windows_control_enabled={settings.windows_control_enable}\n"
+                    f"  mouse_enabled={settings.mouse_enable}\n"
+                    f"  keyboard_enabled={settings.keyboard_enable}\n"
+                    f"  automation_enabled={info.get('automation_enabled')}\n"
+                    f"  stt_enabled={settings.stt_enable}"
                 )
                 self._append_history("assistant", reply)
                 return reply
