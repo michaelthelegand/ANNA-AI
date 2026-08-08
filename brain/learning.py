@@ -98,10 +98,21 @@ class Learner:
         return [t for t in todos if not bool(t.get("done"))]
 
     def todo_done(self, todo_id: int) -> bool:
+        try:
+            target_id = int(todo_id)
+        except (TypeError, ValueError, OverflowError):
+            return False
+
         todos = self._load_todos()
         changed = False
         for t in todos:
-            if int(t.get("id", -1)) == int(todo_id):
+            if not isinstance(t, dict):
+                continue
+            try:
+                current_id = int(t.get("id", -1))
+            except (TypeError, ValueError, OverflowError):
+                continue
+            if current_id == target_id:
                 if not bool(t.get("done")):
                     t["done"] = True
                     t["done_utc"] = self._now_utc()
