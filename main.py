@@ -1,4 +1,4 @@
-﻿from __future__ import annotations
+from __future__ import annotations
 
 from datetime import datetime, timezone
 
@@ -7,9 +7,12 @@ from brain.personality import current_persona
 from brain.reasoning import reasoner
 from config import settings
 
-try:
-    from voice.text_to_speech import tts
-except Exception:
+if settings.ANNA_TTS_ENABLE:
+    try:
+        from voice.text_to_speech import tts
+    except Exception:
+        tts = None
+else:
     tts = None
 
 
@@ -25,7 +28,7 @@ def _speak(text: str) -> None:
         short = short[:300] + " ..."
 
     try:
-        tts.speak(short, wait=False)
+        tts.speak(short, wait=True)
     except Exception:
         pass
 
