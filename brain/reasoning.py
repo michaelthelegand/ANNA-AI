@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from brain.learning import learner
+from brain.personal_development import personal_development
 from brain.personality import current_persona
 from brain.memory import memory
 from config.settings import settings
@@ -74,6 +75,16 @@ class Reasoner:
             "  todo list [all]              List todos (default hides done)\n"
             "  todo done <id>               Mark todo as done by id\n"
             "  todo clear                   Clear all todos\n"
+            "\n"
+            "Personal Development:\n"
+            "  goal add <title>              Add a personal goal\n"
+            "  goal list [all]               List goals\n"
+            "  goal done <id>                Mark a goal as completed\n"
+            "  goal clear                    Clear completed goals\n"
+            "  habit add <name> [frequency]  Add a habit\n"
+            "  habit list                    List habits\n"
+            "  habit log <id> [date]         Log a habit\n"
+            "  progress                      Show progress summary\n"
             "\n"
             "History (saved in data/memory.json):\n"
             "  history [n]                  Show last n messages (default: 20)\n"
@@ -391,7 +402,7 @@ class Reasoner:
                         return reply
                     lines = []
                     for t in todos:
-                        mark = "✓" if t.get("done") else " "
+                        mark = "âœ“" if t.get("done") else " "
                         lines.append(f"[{mark}] #{t.get('id')}: {t.get('text')}")
                     reply = f"{self.name}: TODOs:\n" + "\n".join(lines)
                     self._append_history("assistant", reply)
@@ -420,6 +431,164 @@ class Reasoner:
                     return reply
 
                 reply = f"{self.name}: Usage: todo add <text> | todo list [all] | todo done <id> | todo clear"
+                self._append_history("assistant", reply)
+                return reply
+
+            # Personal Development commands
+            if cmd_l in {"goal", "goals"}:
+                if not arg:
+                    reply = f"{self.name}: Usage: goal add <title> | goal list [all] | goal done <id> | goal clear"
+                    self._append_history("assistant", reply)
+                    return reply
+
+                sub, *rest2 = arg.split(maxsplit=1)
+                sub_l = sub.lower()
+                sub_arg = rest2[0].strip() if rest2 else ""
+
+                if sub_l == "add":
+                    if not sub_arg:
+                        reply = f"{self.name}: Usage: goal add <title>"
+                    else:
+                        goal = personal_development.goal_add(sub_arg)
+                        reply = f"{self.name}: Added goal #{goal.get('id')}: {goal.get('title')}"
+                    self._append_history("assistant", reply)
+                    return reply
+
+                if sub_l == "list":
+                    include_completed = sub_arg.lower() == "all"
+                    goals = personal_development.goal_list(
+                        include_completed=include_completed
+                    )
+                    if not goals:
+                        reply = f"{self.name}: No goals."
+                    else:
+                        lines = []
+                        for goal in goals:
+                            status = "DONE" if goal.get("status") == "completed" else "ACTIVE"
+                            target = goal.get("target_date") or ""
+                            suffix = f" | target: {target}" if target else ""
+                            lines.append(
+                                f"[{status}] #{goal.get('id')}: "
+                                f"{goal.get('title')}{suffix}"
+                            )
+                        reply = f"{self.name}: Goals:\n" + "\n".join(lines)
+                    self._append_history("assistant", reply)
+                    return reply
+
+                if sub_l == "done":
+                    try:
+                        goal_id = int(sub_arg)
+                    except Exception:
+                        reply = f"{self.name}: Usage: goal done <id>"
+                        self._append_history("assistant", reply)
+                        return reply
+
+                    ok = personal_development.goal_done(goal_id)
+                    reply = (
+                        f"{self.name}: Marked goal #{goal_id} completed."
+                        if ok
+                        else f"{self.name}: Goal #{goal_id} not found or already completed."
+                    )
+                    self._append_history("assistant", reply)
+                    return reply
+
+                if sub_l == "clear":
+                    removed = personal_development.goal_clear_completed()
+                    reply = f"{self.name}: Cleared {removed} completed goal(s)."
+                    self._append_history("assistant", reply)
+                    return reply
+
+                reply = f"{self.name}: Usage: goal add <title> | goal list [all] | goal done <id> | goal clear"
+                self._append_history("assistant", reply)
+                return reply
+
+            if cmd_l == "habit":
+                if not arg:
+                    reply = f"{self.name}: Usage: habit add <name> [frequency] | habit list | habit log <id> [date]"
+                    self._append_history("assistant", reply)
+                    return reply
+
+                sub, *rest2 = arg.split(maxsplit=1)
+                sub_l = sub.lower()
+                sub_arg = rest2[0].strip() if rest2 else ""
+
+                if sub_l == "add":
+                    if not sub_arg:
+                        reply = f"{self.name}: Usage: habit add <name> [frequency]"
+                    else:
+                        parts = sub_arg.rsplit(maxsplit=1)
+                        frequencies = {"daily", "weekly", "monthly"}
+                        if len(parts) == 2 and parts[1].lower() in frequencies:
+                            habit_name, frequency = parts
+                        else:
+                            habit_name, frequency = sub_arg, "daily"
+
+                        habit = personal_development.habit_add(
+                            habit_name,
+                            frequency,
+                        )
+                        reply = (
+                            f"{self.name}: Added habit #{habit.get('id')}: "
+                            f"{habit.get('name')} ({habit.get('frequency')})"
+                        )
+                    self._append_history("assistant", reply)
+                    return reply
+
+                if sub_l == "list":
+                    habits = personal_development.habit_list()
+                    if not habits:
+                        reply = f"{self.name}: No habits."
+                    else:
+                        today = personal_development._today()
+                        lines = []
+                        for habit in habits:
+                            logged = today in habit.get("logs", [])
+                            mark = "DONE" if logged else "TODO"
+                            lines.append(
+                                f"[{mark}] #{habit.get('id')}: "
+                                f"{habit.get('name')} ({habit.get('frequency')})"
+                            )
+                        reply = f"{self.name}: Habits:\n" + "\n".join(lines)
+                    self._append_history("assistant", reply)
+                    return reply
+
+                if sub_l == "log":
+                    parts = sub_arg.split(maxsplit=1)
+                    if not parts:
+                        reply = f"{self.name}: Usage: habit log <id> [date]"
+                    else:
+                        try:
+                            habit_id = int(parts[0])
+                        except Exception:
+                            reply = f"{self.name}: Invalid habit id: {parts[0]}"
+                        else:
+                            logged_date = parts[1] if len(parts) > 1 else None
+                            ok = personal_development.habit_log(
+                                habit_id,
+                                logged_date,
+                            )
+                            reply = (
+                                f"{self.name}: Logged habit #{habit_id}."
+                                if ok
+                                else f"{self.name}: Habit #{habit_id} not found."
+                            )
+                    self._append_history("assistant", reply)
+                    return reply
+
+                reply = f"{self.name}: Usage: habit add <name> [frequency] | habit list | habit log <id> [date]"
+                self._append_history("assistant", reply)
+                return reply
+
+            if cmd_l in {"progress", "pdprogress"}:
+                summary = personal_development.progress()
+                reply = (
+                    f"{self.name}: Progress for {summary.get('today')}:\n"
+                    f"Goals: {summary.get('goals_completed')}/"
+                    f"{summary.get('goals_total')} completed "
+                    f"({summary.get('goals_active')} active)\n"
+                    f"Habits done today: {summary.get('habits_done_today')}/"
+                    f"{summary.get('habits_total')}"
+                )
                 self._append_history("assistant", reply)
                 return reply
 
@@ -478,6 +647,7 @@ class Reasoner:
 
 
 reasoner = Reasoner()
+
 
 
 
